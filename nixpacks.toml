@@ -1,11 +1,14 @@
 [phases.setup]
-aptPkgs = ['tesseract-ocr', 'libtesseract-dev']
 
 [phases.install]
-cmds = ['pip install -r requirements.txt']
+cmds = [
+  'apt-get update',
+  'apt-get install -y tesseract-ocr libtesseract-dev',
+  'pip install -r requirements.txt'
+]
 
 [phases.build]
-cmds = ['which tesseract || echo "Tesseract not found in PATH"', 'tesseract --version || echo "Cannot run tesseract"']
+cmds = ['tesseract --version']
 
 [start]
 cmd = 'uvicorn api_server:app --host 0.0.0.0 --port $PORT'
