@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Product Extractor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 32px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+        
+        .drop-zone {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 60px 20px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            background: #fafafa;
+        }
+        
+        .drop-zone:hover, .drop-zone.dragover {
+            border-color: #667eea;
+            background: #f0f4ff;
+        }
+        
+        .drop-zone.dragover {
+            transform: scale(1.02);
+        }
+        
+        .drop-icon {
+            font-size: 64px;
+            margin-bottom: 20px;
+        }
+        
+        .drop-text {
+            font-size: 18px;
+            color: #666;
+            margin-bottom: 10px;
+        }
+        
+        .drop-subtext {
+            font-size: 14px;
+            color: #999;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .progress {
+            margin-top: 30px;
+            display: none;
+        }
+        
+        .progress.active {
+            display: block;
+        }
+        
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #eee;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
+        
+        .status {
+            text-align: center;
+            color: #666;
+            font-size: 14px;
+        }
+        
+        .result {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f0fff0;
+            border: 2px solid #4CAF50;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        .result.active {
+            display: block;
+        }
+        
+        .result h3 {
+            color: #4CAF50;
+            margin-bottom: 15px;
+        }
+        
+        .result-info {
+            color: #666;
+            line-height: 1.8;
+        }
+        
+        .download-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+            font-weight: 600;
+            transition: transform 0.2s;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            background: #45a049;
+        }
+        
+        .error {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff0f0;
+            border: 2px solid #f44336;
+            border-radius: 10px;
+            color: #f44336;
+            display: none;
+        }
+        
+        .error.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF Product Extractor</h1>
+        <p class="subtitle">Extract cropped product images and configuration data</p>
+        
+        <div class="drop-zone" id="dropZone">
+            <div class="drop-icon">📋</div>
+            <div class="drop-text">Drag & Drop PDF Here</div>
+            <div class="drop-subtext">or click to browse</div>
+        </div>
+        
+        <input type="file" id="fileInput" accept=".pdf">
+        
+        <div class="progress" id="progress">
+            <div class="progress-bar">
+                <div class="progress-fill" id="progressFill"></div>
+            </div>
+            <div class="status" id="status">Processing...</div>
+        </div>
+        
+        <div class="result" id="result">
+            <h3>✓ Extraction Complete!</h3>
+            <div class="result-info" id="resultInfo"></div>
+            <button class="download-btn" id="downloadBtn">Download ZIP</button>
+        </div>
+        
+        <div class="error" id="error"></div>
+    </div>
+    
+    <script>
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        const progress = document.getElementById('progress');
+        const progressFill = document.getElementById('progressFill');
+        const status = document.getElementById('status');
+        const result = document.getElementById('result');
+        const resultInfo = document.getElementById('resultInfo');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const errorDiv = document.getElementById('error');
+        
+        // Use relative URL so it works on any domain
+        const API_URL = '';
+        
+        let currentBlob = null;
+        let currentFilename = 'extraction.zip';
+        
+        // Drag and drop
+        dropZone.addEventListener('click', () => fileInput.click());
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0 && files[0].type === 'application/pdf') {
+                handleFile(files[0]);
+            } else {
+                showError('Please drop a PDF file');
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        async function handleFile(file) {
+            result.classList.remove('active');
+            errorDiv.classList.remove('active');
+            progress.classList.add('active');
+            progressFill.style.width = '30%';
+            status.textContent = `Processing ${file.name}...`;
+            
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            try {
+                progressFill.style.width = '60%';
+                
+                const response = await fetch(`${API_URL}/extract/download`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || 'Extraction failed');
+                }
+                
+                progressFill.style.width = '90%';
+                
+                const blob = await response.blob();
+                currentBlob = blob;
+                
+                // Get filename from response headers
+                const contentDisposition = response.headers.get('content-disposition');
+                if (contentDisposition) {
+                    const filenameMatch = contentDisposition.match(/filename="?(.+)"?/);
+                    if (filenameMatch) {
+                        currentFilename = filenameMatch[1];
+                    }
+                }
+                
+                progressFill.style.width = '100%';
+                status.textContent = 'Complete!';
+                
+                setTimeout(() => {
+                    progress.classList.remove('active');
+                    showResult(file.name);
+                }, 500);
+                
+            } catch (error) {
+                progress.classList.remove('active');
+                showError(error.message);
+            }
+        }
+        
+        function showResult(filename) {
+            resultInfo.innerHTML = `
+                <strong>${filename}</strong><br>
+                Product images extracted and organized into folders.<br>
+                Ready to download!
+            `;
+            result.classList.add('active');
+        }
+        
+        function showError(message) {
+            errorDiv.textContent = `Error: ${message}`;
+            errorDiv.classList.add('active');
+        }
+        
+        downloadBtn.addEventListener('click', () => {
+            if (currentBlob) {
+                const url = URL.createObjectURL(currentBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = currentFilename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }
+        });
+    </script>
+</body>
+</html>
