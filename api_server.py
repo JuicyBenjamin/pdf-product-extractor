@@ -83,8 +83,29 @@ async def extract_and_download(file: UploadFile = File(...)):
 
 @app.get("/health")
 async def health_check():
-    """Health check endpoint"""
-    return {"status": "healthy"}
+    """Health check endpoint with tesseract verification"""
+    import subprocess
+    import shutil
+    
+    # Check if tesseract is available
+    tesseract_path = shutil.which("tesseract")
+    tesseract_installed = tesseract_path is not None
+    
+    tesseract_version = None
+    if tesseract_installed:
+        try:
+            result = subprocess.run(["tesseract", "--version"], 
+                                  capture_output=True, text=True)
+            tesseract_version = result.stdout.split('\n')[0]
+        except:
+            pass
+    
+    return {
+        "status": "healthy",
+        "tesseract_installed": tesseract_installed,
+        "tesseract_path": tesseract_path,
+        "tesseract_version": tesseract_version
+    }
 
 
 if __name__ == "__main__":
